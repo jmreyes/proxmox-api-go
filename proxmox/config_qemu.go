@@ -40,6 +40,7 @@ type ConfigQemu struct {
 	QemuNuma     bool        `json:"numa"`
 	Hotplug      string      `json:"hotplug"`
 	QemuIso      string      `json:"iso"`
+	QemuIsoExtra string      `json:"isoextra,omitempty"`
 	FullClone    *int        `json:"fullclone"`
 	Boot         string      `json:"boot"`
 	BootDisk     string      `json:"bootdisk,omitempty"`
@@ -107,11 +108,11 @@ func (config ConfigQemu) CreateVm(vmr *VmRef, client *Client) (err error) {
 	if config.Balloon >= 1 {
 		params["balloon"] = config.Balloon
 	}
-	
+
 	if config.QemuVcpus >= 1 {
 		params["vcpus"] = config.QemuVcpus
 	}
-	
+
 	if vmr.pool != "" {
 		params["pool"] = vmr.pool
 	}
@@ -122,6 +123,10 @@ func (config ConfigQemu) CreateVm(vmr *VmRef, client *Client) (err error) {
 
 	if config.Scsihw != "" {
 		params["scsihw"] = config.Scsihw
+	}
+
+	if config.QemuIsoExtra != "" {
+		params["ide3"] = config.QemuIsoExtra + ",media=cdrom"
 	}
 
 	// Create disks config.
@@ -231,13 +236,13 @@ func (config ConfigQemu) UpdateConfig(vmr *VmRef, client *Client) (err error) {
 	} else {
 		deleteParams = append(deleteParams, "balloon")
 	}
-	
+
 	if config.QemuVcpus >= 1 {
 		configParams["vcpus"] = config.QemuVcpus
 	} else {
 		deleteParams = append(deleteParams, "vcpus")
 	}
-	
+
 	if config.BootDisk != "" {
 		configParams["bootdisk"] = config.BootDisk
 	}
@@ -307,11 +312,11 @@ func (config ConfigQemu) UpdateConfig(vmr *VmRef, client *Client) (err error) {
 	if config.Ipconfig2 != "" {
 		configParams["ipconfig2"] = config.Ipconfig2
 	}
-	
+
 	if len(deleteParams) > 0 {
 		configParams["delete"] = strings.Join(deleteParams, ", ")
 	}
-	
+
 	_, err = client.SetVmConfig(vmr, configParams)
 	if err != nil {
 		log.Print(err)
@@ -481,17 +486,22 @@ func NewConfigQemuFromApi(vmr *VmRef, client *Client) (config *ConfigQemu, err e
 		QemuNetworks: QemuDevices{},
 		QemuSerials:  QemuDevices{},
 	}
-	
+
 	if balloon >= 1 {
-		config.Balloon = int(balloon);
+		config.Balloon = int(balloon)
 	}
 	if vcpus >= 1 {
-		config.QemuVcpus = int(vcpus);
+		config.QemuVcpus = int(vcpus)
 	}
 
 	if vmConfig["ide2"] != nil {
 		isoMatch := rxIso.FindStringSubmatch(vmConfig["ide2"].(string))
 		config.QemuIso = isoMatch[1]
+	}
+
+	if vmConfig["ide3"] != nil {
+		isoMatch := rxIso.FindStringSubmatch(vmConfig["ide3"].(string))
+		config.QemuIsoExtra = isoMatch[1]
 	}
 
 	if _, isSet := vmConfig["ciuser"]; isSet {
